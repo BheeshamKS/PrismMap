@@ -265,8 +265,7 @@ def _compute_tfidf(files: list[dict], query: str) -> np.ndarray:
 
 def _tokenize(text: str) -> set[str]:
     tokens = set(re.findall(r"[a-z]+", text.lower()))
-    stopwords = {"the", "a", "an", "is", "are", "was", "were", "in", "of", "to", "for", "and", "or"}
-    return tokens - stopwords
+    return tokens - _STOPWORDS
 
 
 def _get_recent_files(repo_root: str) -> set[str]:
