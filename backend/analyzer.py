@@ -36,6 +36,41 @@ SKIP_FILES = {
     "Gemfile.lock", "cargo.lock",
 }
 
+# Docs and config files that almost never contain logic relevant to a bug.
+# Matched case-insensitively against the bare filename.
+LOW_VALUE_EXTENSIONS = {".css", ".scss", ".sass", ".less", ".styl"}
+
+SKIP_NAMES = {
+    # documentation
+    "readme.md", "readme.rst", "readme.txt", "readme",
+    "changelog.md", "changelog.rst", "changelog.txt", "changelog",
+    "changes.md", "history.md", "news.md", "releases.md",
+    "contributing.md", "contributors.md", "contributors.txt",
+    "code_of_conduct.md", "security.md", "support.md",
+    "license", "license.md", "license.txt", "license.rst",
+    "notice", "notice.md", "notice.txt",
+    "authors", "authors.md", "authors.txt",
+    "copying", "patents",
+    # project config / manifests that don't contain logic
+    ".gitignore", ".gitattributes", ".gitmodules", ".editorconfig",
+    ".prettierrc", ".prettierignore", ".eslintignore",
+    ".npmignore", ".npmrc", ".nvmrc", ".node-version",
+    ".python-version", ".ruby-version",
+    "makefile", "dockerfile", "docker-compose.yml", "docker-compose.yaml",
+    ".env.example", ".env.sample", ".env.template",
+    "package.json", "tsconfig.json", "jsconfig.json",
+    "babel.config.js", "babel.config.json",
+    "jest.config.js", "jest.config.ts", "jest.config.json",
+    "vitest.config.js", "vitest.config.ts",
+    "webpack.config.js", "rollup.config.js", "esbuild.config.js",
+    "vite.config.js", "vite.config.ts",
+    "index.html", ".htaccess",
+    "setup.cfg", "setup.py", "pyproject.toml", "manifest.in",
+    "tox.ini", "pytest.ini", ".flake8", ".pylintrc", "mypy.ini",
+    "gemfile", "rakefile", "guardfile",
+    "cargo.toml",
+}
+
 MAX_FILE_LINES = 500
 MAX_TOTAL_CHARS = 40_000
 
@@ -70,7 +105,9 @@ async def analyze_repo(repo_url: str, bug_description: str):
 
         yield {"type": "log", "message": "building prompt..."}
         top_files = sorted(scored_files, key=lambda x: x["score"], reverse=True)[:10]
-        prompt, token_estimate = await asyncio.to_thread(build_prompt, bug_description, top_files, MAX_TOTAL_CHARS)
+        prompt, token_estimate = await asyncio.to_thread(
+            build_prompt, bug_description, top_files, len(scored_files), repo_url, MAX_TOTAL_CHARS
+        )
 
         selected = [
             {
@@ -105,7 +142,8 @@ def collect_files(root: str) -> list[dict]:
 
         dir_path = Path(dirpath)
         for filename in filenames:
-            if filename in SKIP_FILES:
+            name_lower = filename.lower()
+            if filename in SKIP_FILES or name_lower in SKIP_NAMES:
                 continue
 
             filepath = dir_path / filename
@@ -152,7 +190,8 @@ def score_files(files: list[dict], bug_description: str, repo_root: str) -> list
     # Combine base scores
     for i, f in enumerate(files):
         recency = 0.10 if f["path"] in recent_files else 0.0
-        f["score"] = (tfidf_scores[i] * 0.40) + (filename_scores[i] * 0.25) + recency
+        type_mul = 0.3 if Path(f["path"]).suffix.lower() in LOW_VALUE_EXTENSIONS else 1.0
+        f["score"] = ((tfidf_scores[i] * 0.40) + (filename_scores[i] * 0.25) + recency) * type_mul
 
         reasons = []
         if tfidf_scores[i] > 0.25:
@@ -161,6 +200,8 @@ def score_files(files: list[dict], bug_description: str, repo_root: str) -> list
             reasons.append("filename match")
         if recency:
             reasons.append("recently modified")
+        if type_mul < 1.0:
+            reasons.append("style file penalty")
         f["reason"] = " + ".join(reasons) if reasons else "low relevance"
 
     # Signal 3: import graph bonus (+0.15) — applied to files imported by top scorers
