@@ -11,7 +11,7 @@ const LOGO_ROWS = [
   { prism: "█                      ", map: "             █   " },
 ];
 
-const PX = 7; // each pixel block is PX×PX — perfectly square, zero gap
+const PX = 14; // each pixel block is PX×PX — perfectly square, zero gap
 
 function Logo() {
   return (
@@ -297,7 +297,8 @@ export default function App() {
             className="border border-zinc-700 bg-zinc-950 px-4 py-3 animate-fade-in"
           >
             <p className="font-mono text-xs text-amber-500">
-              <span className="select-none">⚠ </span>{msg}
+              <span className="select-none">⚠ </span>
+              {msg}
             </p>
           </div>
         ))}
