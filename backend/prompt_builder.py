@@ -1,3 +1,12 @@
+import re
+
+_STOPWORDS = {
+    "the", "a", "an", "is", "are", "was", "were", "in", "of", "to",
+    "for", "and", "or", "if", "pls", "please", "let", "me", "know",
+    "find", "any",
+}
+
+
 def build_prompt(
     bug_description: str,
     top_files: list[dict],
@@ -26,6 +35,21 @@ def build_prompt(
     files_str = "".join(file_sections)
     shown = len(file_sections)
 
+    bug_tokens = set(re.findall(r"[a-z]+", bug_description.lower())) - _STOPWORDS
+    is_audit = len(bug_tokens) < 4
+
+    if is_audit:
+        closing = (
+            "Review these files for bugs, security issues, edge cases, "
+            "and code quality problems. List each issue with the file, "
+            "line number, severity (low/medium/high), and a concrete fix."
+        )
+    else:
+        closing = (
+            "Identify the root cause, cite the specific file and line number, "
+            "and provide a concrete code fix."
+        )
+
     prompt = (
         "You are a senior engineer helping debug the following issue.\n\n"
         f"Repository: {repo_url}\n"
@@ -33,8 +57,7 @@ def build_prompt(
         f"Below are the {shown} most relevant files (of {total_file_count} total), "
         "ranked by relevance score:\n"
         f"{files_str}\n"
-        "Identify the root cause, cite the specific file and line number, "
-        "and provide a concrete code fix."
+        f"{closing}"
     )
 
     token_estimate = len(prompt) // 4

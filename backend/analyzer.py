@@ -11,7 +11,7 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-from prompt_builder import build_prompt
+from prompt_builder import build_prompt, _STOPWORDS
 
 SKIP_DIRS = {
     "node_modules", ".git", "dist", "build", "__pycache__",
@@ -99,6 +99,10 @@ async def analyze_repo(repo_url: str, bug_description: str):
         if not files:
             yield {"type": "error", "message": "No readable source files found in repository."}
             return
+
+        vague_warning = _check_vague(bug_description)
+        if vague_warning:
+            yield {"type": "warning", "message": vague_warning}
 
         yield {"type": "log", "message": f"scoring relevance across {len(files)} files..."}
         scored_files = await asyncio.to_thread(score_files, files, bug_description, repo_dir)
@@ -220,6 +224,27 @@ def score_files(files: list[dict], bug_description: str, repo_root: str) -> list
                 f["reason"] = (f["reason"] + " + imported by high-scorer").lstrip(" + ")
 
     return files
+
+
+def _check_vague(bug_description: str) -> str | None:
+    text = bug_description.strip()
+
+    if len(text) < 20:
+        return (
+            "Bug description is very short — relevance scores may be unreliable. "
+            "Consider describing what fails, under what conditions, and where in the UI or API."
+        )
+
+    words = re.findall(r"[a-z]+", text.lower())
+    meaningful = [w for w in words if w not in _STOPWORDS and len(w) > 2]
+
+    if len(set(meaningful)) < 2:
+        return (
+            "Bug description contains mostly generic terms — relevance scores may be unreliable. "
+            "Try including specific function names, error messages, or affected endpoints."
+        )
+
+    return None
 
 
 def _compute_tfidf(files: list[dict], query: str) -> np.ndarray:

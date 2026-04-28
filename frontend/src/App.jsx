@@ -156,6 +156,7 @@ export default function App() {
   const [bugDescription, setBugDescription] = useState("");
   const [status, setStatus] = useState("idle");
   const [logs, setLogs] = useState([]);
+  const [warnings, setWarnings] = useState([]);
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
 
@@ -165,6 +166,7 @@ export default function App() {
 
       setStatus("loading");
       setLogs([]);
+      setWarnings([]);
       setResult(null);
       setErrorMsg("");
 
@@ -210,6 +212,8 @@ export default function App() {
 
               if (data.type === "log") {
                 setLogs((prev) => [...prev, data.message]);
+              } else if (data.type === "warning") {
+                setWarnings((prev) => [...prev, data.message]);
               } else if (data.type === "result") {
                 gotResult = true;
                 setResult(data);
@@ -285,6 +289,18 @@ export default function App() {
 
         {/* Log Stream */}
         <LogPanel logs={logs} loading={status === "loading"} />
+
+        {/* Vague-input warnings — non-blocking, shown once stream starts */}
+        {warnings.map((msg, i) => (
+          <div
+            key={i}
+            className="border border-zinc-700 bg-zinc-950 px-4 py-3 animate-fade-in"
+          >
+            <p className="font-mono text-xs text-amber-500">
+              <span className="select-none">⚠ </span>{msg}
+            </p>
+          </div>
+        ))}
 
         {/* Error */}
         {status === "error" && (
