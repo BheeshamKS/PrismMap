@@ -1,5 +1,4 @@
 import json
-import os
 
 from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,11 +9,9 @@ from analyzer import analyze_repo, analyze_uploaded
 
 app = FastAPI()
 
-_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in _raw_origins.split(",")],
-    allow_credentials=True,
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )

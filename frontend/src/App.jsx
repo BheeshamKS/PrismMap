@@ -1,6 +1,19 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8001";
+const _rawApiUrl = import.meta.env.VITE_API_URL || "http://localhost:8001";
+const API_URL = _rawApiUrl.startsWith("http") ? _rawApiUrl : `https://${_rawApiUrl}`;
+
+const UPLOAD_SKIP_DIRS = new Set([
+  "node_modules", ".git", "dist", "build", "__pycache__",
+  ".venv", "venv", ".next", "coverage", ".pytest_cache",
+  "vendor", "target", ".cache", "tmp", "temp", ".tox",
+  "eggs", ".eggs", "htmlcov",
+]);
+
+function shouldUpload(file) {
+  const parts = (file.webkitRelativePath || file.name).split("/");
+  return !parts.some((seg) => UPLOAD_SKIP_DIRS.has(seg));
+}
 
 // Each '█' in the string maps to one square pixel block.
 // Spaces are transparent gaps of the same size — no font, no line-height.
@@ -241,7 +254,9 @@ export default function App() {
           const formData = new FormData();
           formData.append("bug_description", bugDescription);
           for (const file of pickedFiles) {
-            formData.append("files", file, file.webkitRelativePath || file.name);
+            if (shouldUpload(file)) {
+              formData.append("files", file, file.webkitRelativePath || file.name);
+            }
           }
           response = await fetch(`${API_URL}/analyze-upload`, {
             method: "POST",
