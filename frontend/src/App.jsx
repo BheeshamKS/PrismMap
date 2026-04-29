@@ -10,9 +10,42 @@ const UPLOAD_SKIP_DIRS = new Set([
   "eggs", ".eggs", "htmlcov",
 ]);
 
+const UPLOAD_SKIP_EXTENSIONS = new Set([
+  ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
+  ".woff", ".woff2", ".ttf", ".eot", ".otf",
+  ".mp4", ".mp3", ".wav", ".ogg", ".webm",
+  ".pdf", ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z",
+  ".lock", ".sum", ".bin", ".exe", ".dll", ".so", ".dylib",
+  ".pyc", ".pyo", ".class", ".o", ".a",
+  ".map",
+]);
+
+const UPLOAD_SKIP_FILES = new Set([
+  "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
+  "poetry.lock", "pipfile.lock", "composer.lock",
+  "gemfile.lock", "cargo.lock",
+]);
+
+const MAX_FILE_BYTES = 100 * 1024;       // 100 KB per file
+const MAX_TOTAL_BYTES = 3.5 * 1024 * 1024; // 3.5 MB total
+
+function fileExt(filename) {
+  const i = filename.lastIndexOf(".");
+  return i === -1 ? "" : filename.slice(i).toLowerCase();
+}
+
 function shouldUpload(file) {
-  const parts = (file.webkitRelativePath || file.name).split("/");
-  return !parts.some((seg) => UPLOAD_SKIP_DIRS.has(seg));
+  const relPath = file.webkitRelativePath || file.name;
+  const parts = relPath.split("/");
+  const filename = parts[parts.length - 1];
+
+  if (parts.some((seg) => UPLOAD_SKIP_DIRS.has(seg))) return false;
+  if (UPLOAD_SKIP_FILES.has(filename.toLowerCase())) return false;
+  if (UPLOAD_SKIP_EXTENSIONS.has(fileExt(filename))) return false;
+  if (filename.endsWith(".min.js") || filename.endsWith(".min.css")) return false;
+  if (file.size > MAX_FILE_BYTES) return false;
+
+  return true;
 }
 
 // Each '█' in the string maps to one square pixel block.
@@ -251,12 +284,28 @@ export default function App() {
       try {
         let response;
         if (pickedFiles) {
+          const filesToUpload = Array.from(pickedFiles).filter(shouldUpload);
+          const totalBytes = filesToUpload.reduce((sum, f) => sum + f.size, 0);
+
+          if (totalBytes > MAX_TOTAL_BYTES) {
+            setErrorMsg(
+              `Upload is ${(totalBytes / 1024 / 1024).toFixed(1)} MB after filtering — exceeds the 3.5 MB server limit. ` +
+              "Use a GitHub URL instead, or select a smaller folder."
+            );
+            setStatus("error");
+            return;
+          }
+
+          if (filesToUpload.length === 0) {
+            setErrorMsg("No uploadable source files found in the selected folder.");
+            setStatus("error");
+            return;
+          }
+
           const formData = new FormData();
           formData.append("bug_description", bugDescription);
-          for (const file of pickedFiles) {
-            if (shouldUpload(file)) {
-              formData.append("files", file, file.webkitRelativePath || file.name);
-            }
+          for (const file of filesToUpload) {
+            formData.append("files", file, file.webkitRelativePath || file.name);
           }
           response = await fetch(`${API_URL}/analyze-upload`, {
             method: "POST",
