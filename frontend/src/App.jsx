@@ -206,9 +206,11 @@ function PromptBlock({ prompt, tokenEstimate }) {
 
   const handleOpenClaude = () => {
     navigator.clipboard.writeText(prompt).then(() => {
-      window.open("https://claude.ai/new", "_blank", "noopener,noreferrer");
       setClaudeOpened(true);
-      setTimeout(() => setClaudeOpened(false), 6000);
+      setTimeout(() => {
+        window.open("https://claude.ai/new", "_blank", "noopener,noreferrer");
+        setTimeout(() => setClaudeOpened(false), 6000);
+      }, 1000);
     });
   };
 
