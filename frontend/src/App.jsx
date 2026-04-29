@@ -1,4 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8001";
 
 // Each '█' in the string maps to one square pixel block.
 // Spaces are transparent gaps of the same size — no font, no line-height.
@@ -81,37 +83,63 @@ function LogPanel({ logs, loading }) {
 }
 
 function ScoreTable({ files }) {
+  const [threshold, setThreshold] = useState(0);
+  const visible = files.filter((f) => f.score >= threshold);
+
   return (
     <div className="border border-zinc-800">
+      {/* Threshold slider */}
+      <div className="flex items-center gap-3 px-3 py-2 border-b border-zinc-800">
+        <span className="font-mono text-xs text-zinc-600 shrink-0">
+          min score
+        </span>
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          value={threshold}
+          onChange={(e) => setThreshold(parseFloat(e.target.value))}
+          className="flex-1 h-px appearance-none bg-zinc-700 cursor-pointer"
+          style={{ accentColor: "#888" }}
+        />
+        <span className="font-mono text-xs text-zinc-400 tabular-nums w-10 text-right shrink-0">
+          {threshold.toFixed(2)}
+        </span>
+        <span className="font-mono text-xs text-zinc-600 shrink-0">
+          {visible.length}/{files.length}
+        </span>
+      </div>
+
       <div className="grid grid-cols-12 font-mono text-xs text-zinc-600 px-3 py-2 border-b border-zinc-800 uppercase tracking-widest">
         <div className="col-span-5">file</div>
         <div className="col-span-2 text-right">score</div>
         <div className="col-span-5 pl-3">reason</div>
       </div>
-      {files.map((file, i) => (
-        <div
-          key={i}
-          className={`grid grid-cols-12 font-mono text-xs px-3 py-2 ${
-            i % 2 === 0 ? "bg-black" : "bg-zinc-950"
-          }`}
-        >
-          <div
-            className="col-span-5 text-zinc-200 truncate pr-2"
-            title={file.path}
-          >
-            {file.path}
-          </div>
-          <div className="col-span-2 text-right tabular-nums text-zinc-400">
-            {file.score.toFixed(2)}
-          </div>
-          <div
-            className="col-span-5 pl-3 text-zinc-500 truncate"
-            title={file.reason}
-          >
-            {file.reason}
-          </div>
+      {visible.length === 0 ? (
+        <div className="px-3 py-3 font-mono text-xs text-zinc-600">
+          no files above threshold
         </div>
-      ))}
+      ) : (
+        visible.map((file, i) => (
+          <div
+            key={file.path}
+            className={`grid grid-cols-12 font-mono text-xs px-3 py-2 ${
+              i % 2 === 0 ? "bg-black" : "bg-zinc-950"
+            }`}
+          >
+            <div className="col-span-5 text-zinc-200 truncate pr-2" title={file.path}>
+              {file.path}
+            </div>
+            <div className="col-span-2 text-right tabular-nums text-zinc-400">
+              {file.score.toFixed(2)}
+            </div>
+            <div className="col-span-5 pl-3 text-zinc-500 truncate" title={file.reason}>
+              {file.reason}
+            </div>
+          </div>
+        ))
+      )}
     </div>
   );
 }
@@ -126,6 +154,12 @@ function PromptBlock({ prompt, tokenEstimate }) {
     });
   };
 
+  const handleOpenClaude = () => {
+    navigator.clipboard.writeText(prompt).then(() => {
+      window.open("https://claude.ai/new", "_blank", "noopener,noreferrer");
+    });
+  };
+
   return (
     <div className="border border-zinc-800">
       <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800">
@@ -135,12 +169,20 @@ function PromptBlock({ prompt, tokenEstimate }) {
             ~{tokenEstimate.toLocaleString()} tokens
           </span>
         </div>
-        <button
-          onClick={handleCopy}
-          className="font-mono text-xs border border-zinc-800 px-2.5 py-1 text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
-        >
-          {copied ? "✓ copied" : "Copy Prompt"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleOpenClaude}
+            className="font-mono text-xs border border-zinc-800 px-2.5 py-1 text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
+          >
+            Open in Claude ↗
+          </button>
+          <button
+            onClick={handleCopy}
+            className="font-mono text-xs border border-zinc-800 px-2.5 py-1 text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
+          >
+            {copied ? "✓ copied" : "Copy Prompt"}
+          </button>
+        </div>
       </div>
       <div className="p-4 max-h-96 overflow-y-auto">
         <pre className="font-mono text-xs text-zinc-300 whitespace-pre-wrap break-words leading-relaxed">
@@ -159,6 +201,26 @@ export default function App() {
   const [warnings, setWarnings] = useState([]);
   const [result, setResult] = useState(null);
   const [errorMsg, setErrorMsg] = useState("");
+  const [pickedFiles, setPickedFiles] = useState(null);
+
+  const dirInputRef = useRef(null);
+
+  useEffect(() => {
+    if (dirInputRef.current) dirInputRef.current.setAttribute("webkitdirectory", "");
+  }, []);
+
+  const handleFolderPick = (e) => {
+    const files = e.target.files;
+    if (!files?.length) return;
+    setPickedFiles(files);
+    setRepoUrl(files[0].webkitRelativePath.split("/")[0]);
+  };
+
+  const handleClearFolder = () => {
+    setPickedFiles(null);
+    setRepoUrl("");
+    if (dirInputRef.current) dirInputRef.current.value = "";
+  };
 
   const handleSubmit = useCallback(
     async (e) => {
@@ -174,14 +236,27 @@ export default function App() {
       let gotError = false;
 
       try {
-        const response = await fetch("http://localhost:8001/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            repo_url: repoUrl,
-            bug_description: bugDescription,
-          }),
-        });
+        let response;
+        if (pickedFiles) {
+          const formData = new FormData();
+          formData.append("bug_description", bugDescription);
+          for (const file of pickedFiles) {
+            formData.append("files", file, file.webkitRelativePath || file.name);
+          }
+          response = await fetch(`${API_URL}/analyze-upload`, {
+            method: "POST",
+            body: formData,
+          });
+        } else {
+          response = await fetch(`${API_URL}/analyze`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              repo_url: repoUrl,
+              bug_description: bugDescription,
+            }),
+          });
+        }
 
         if (!response.ok) {
           const text = await response.text();
@@ -238,11 +313,11 @@ export default function App() {
         setStatus("error");
       }
     },
-    [repoUrl, bugDescription],
+    [pickedFiles, repoUrl, bugDescription],
   );
 
   const canSubmit =
-    repoUrl.trim() && bugDescription.trim() && status !== "loading";
+    (pickedFiles != null || repoUrl.trim()) && bugDescription.trim() && status !== "loading";
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -257,18 +332,49 @@ export default function App() {
 
         {/* Input Panel */}
         <form onSubmit={handleSubmit} className="space-y-2">
-          <input
-            type="text"
-            value={repoUrl}
-            onChange={(e) => setRepoUrl(e.target.value)}
-            placeholder="https://github.com/user/repo"
-            className="w-full bg-zinc-950 border border-zinc-800 text-white font-mono text-sm px-3 py-2.5 focus:outline-none focus:border-zinc-600 placeholder:text-zinc-700 transition-colors disabled:opacity-40"
-            required
-            disabled={status === "loading"}
-            spellCheck={false}
-            autoCorrect="off"
-            autoCapitalize="off"
-          />
+          <div className="flex">
+            <input
+              type="text"
+              value={repoUrl}
+              onChange={(e) => {
+                if (pickedFiles) {
+                  setPickedFiles(null);
+                  if (dirInputRef.current) dirInputRef.current.value = "";
+                }
+                setRepoUrl(e.target.value);
+              }}
+              placeholder="https://github.com/user/repo  —  or select a local folder →"
+              className="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 text-white font-mono text-sm px-3 py-2.5 focus:outline-none focus:border-zinc-600 placeholder:text-zinc-700 transition-colors disabled:opacity-40"
+              required={!pickedFiles}
+              disabled={status === "loading"}
+              readOnly={!!pickedFiles}
+              spellCheck={false}
+              autoCorrect="off"
+              autoCapitalize="off"
+            />
+            <button
+              type="button"
+              onClick={pickedFiles ? handleClearFolder : () => dirInputRef.current?.click()}
+              disabled={status === "loading"}
+              className="border border-l-0 border-zinc-800 px-3 text-zinc-500 hover:text-white hover:border-zinc-600 transition-colors disabled:opacity-40 shrink-0"
+              title={pickedFiles ? "Clear selection" : "Open local folder"}
+            >
+              {pickedFiles ? (
+                <span className="font-mono text-sm leading-none">×</span>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                </svg>
+              )}
+            </button>
+            <input
+              ref={dirInputRef}
+              type="file"
+              className="hidden"
+              onChange={handleFolderPick}
+              multiple
+            />
+          </div>
           <textarea
             value={bugDescription}
             onChange={(e) => setBugDescription(e.target.value)}

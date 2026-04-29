@@ -75,23 +75,86 @@ MAX_FILE_LINES = 500
 MAX_TOTAL_CHARS = 40_000
 
 
+def _is_local_path(url: str) -> bool:
+    return not url.startswith(("http://", "https://", "git://", "ssh://", "git@"))
+
+
+async def analyze_uploaded(file_data: list[tuple[str, bytes]], bug_description: str):
+    tmpdir = tempfile.mkdtemp(prefix="prismmap_upload_")
+    try:
+        yield {"type": "log", "message": "reading uploaded files..."}
+
+        for rel_path, content in file_data:
+            dest = os.path.join(tmpdir, rel_path)
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            with open(dest, "wb") as fh:
+                fh.write(content)
+
+        files = await asyncio.to_thread(collect_files, tmpdir)
+
+        if not files:
+            yield {"type": "error", "message": "No readable source files found in the uploaded folder."}
+            return
+
+        vague_warning = _check_vague(bug_description)
+        if vague_warning:
+            yield {"type": "warning", "message": vague_warning}
+
+        yield {"type": "log", "message": f"scoring relevance across {len(files)} files..."}
+        scored = await asyncio.to_thread(score_files, files, bug_description, tmpdir)
+
+        yield {"type": "log", "message": "building prompt..."}
+        top = sorted(scored, key=lambda x: x["score"], reverse=True)[:10]
+        prompt, token_estimate = await asyncio.to_thread(
+            build_prompt, bug_description, top, len(scored), "local folder", MAX_TOTAL_CHARS
+        )
+
+        selected = [
+            {"path": f["path"], "score": round(f["score"], 3), "reason": f["reason"]}
+            for f in top
+        ]
+        yield {
+            "type": "result",
+            "selected_files": selected,
+            "prompt": prompt,
+            "token_estimate": token_estimate,
+        }
+
+    except Exception as e:
+        yield {"type": "error", "message": str(e)}
+    finally:
+        await asyncio.to_thread(shutil.rmtree, tmpdir, ignore_errors=True)
+
+
 async def analyze_repo(repo_url: str, bug_description: str):
-    tmpdir = tempfile.mkdtemp(prefix="prismmap_")
-    repo_dir = os.path.join(tmpdir, "repo")
+    is_local = _is_local_path(repo_url)
+    tmpdir = None
+
+    if is_local:
+        repo_dir = str(Path(repo_url).expanduser().resolve())
+    else:
+        tmpdir = tempfile.mkdtemp(prefix="prismmap_")
+        repo_dir = os.path.join(tmpdir, "repo")
 
     try:
-        yield {"type": "log", "message": "cloning repository..."}
-        clone_result = await asyncio.to_thread(
-            subprocess.run,
-            ["git", "clone", "--depth=1", repo_url, repo_dir],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if clone_result.returncode != 0:
-            msg = clone_result.stderr.strip().splitlines()[-1] if clone_result.stderr.strip() else "unknown error"
-            yield {"type": "error", "message": f"Clone failed: {msg}"}
-            return
+        if is_local:
+            if not Path(repo_dir).is_dir():
+                yield {"type": "error", "message": f"Path not found or not a directory: {repo_dir}"}
+                return
+            yield {"type": "log", "message": f"reading local repository..."}
+        else:
+            yield {"type": "log", "message": "cloning repository..."}
+            clone_result = await asyncio.to_thread(
+                subprocess.run,
+                ["git", "clone", "--depth=1", repo_url, repo_dir],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if clone_result.returncode != 0:
+                msg = clone_result.stderr.strip().splitlines()[-1] if clone_result.stderr.strip() else "unknown error"
+                yield {"type": "error", "message": f"Clone failed: {msg}"}
+                return
 
         yield {"type": "log", "message": "walking file tree..."}
         files = await asyncio.to_thread(collect_files, repo_dir)
@@ -134,7 +197,8 @@ async def analyze_repo(repo_url: str, bug_description: str):
     except Exception as e:
         yield {"type": "error", "message": str(e)}
     finally:
-        await asyncio.to_thread(shutil.rmtree, tmpdir, ignore_errors=True)
+        if tmpdir:
+            await asyncio.to_thread(shutil.rmtree, tmpdir, ignore_errors=True)
 
 
 def collect_files(root: str) -> list[dict]:
