@@ -1,10 +1,14 @@
 import ast
 import asyncio
+import io
 import os
 import re
 import shutil
 import subprocess
 import tempfile
+import urllib.error
+import urllib.request
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -79,6 +83,78 @@ def _is_local_path(url: str) -> bool:
     return not url.startswith(("http://", "https://", "git://", "ssh://", "git@"))
 
 
+def _download_github_zip(repo_url: str, repo_dir: str) -> str | None:
+    """Download a public GitHub repo as a zip. Returns an error string or None on success."""
+    m = re.match(r"https?://github\.com/([^/]+)/([^/.\s]+?)(?:\.git)?/?$", repo_url)
+    if not m:
+        return (
+            "git is not available in this environment and the URL is not a github.com repo — "
+            "only public GitHub URLs are supported on this deployment"
+        )
+
+    owner, repo_name = m.group(1), m.group(2)
+    zip_url = f"https://api.github.com/repos/{owner}/{repo_name}/zipball"
+
+    try:
+        req = urllib.request.Request(zip_url, headers={"User-Agent": "PrismMap/1.0"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            zip_bytes = resp.read()
+
+        with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+            names = zf.namelist()
+            if not names:
+                return "Downloaded zip archive is empty"
+
+            # GitHub zips have a root folder like "owner-repo-{sha}/"
+            root_prefix = names[0].split("/")[0] + "/"
+            os.makedirs(repo_dir, exist_ok=True)
+
+            for info in zf.infolist():
+                if not info.filename.startswith(root_prefix):
+                    continue
+                rel = info.filename[len(root_prefix):]
+                if not rel:
+                    continue
+                dest = os.path.join(repo_dir, rel)
+                if info.filename.endswith("/"):
+                    os.makedirs(dest, exist_ok=True)
+                else:
+                    os.makedirs(os.path.dirname(dest), exist_ok=True)
+                    with zf.open(info) as src, open(dest, "wb") as dst:
+                        dst.write(src.read())
+
+        return None
+
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return f"Repository not found: github.com/{owner}/{repo_name}"
+        return f"GitHub API error: {e.code} {e.reason}"
+    except Exception as e:
+        return str(e)
+
+
+async def _fetch_repo(repo_url: str, repo_dir: str) -> str | None:
+    """Clone via git if available, otherwise fall back to GitHub zip download."""
+    try:
+        result = await asyncio.to_thread(
+            subprocess.run,
+            ["git", "clone", "--depth=1", repo_url, repo_dir],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            return None
+        msg = result.stderr.strip().splitlines()[-1] if result.stderr.strip() else "unknown error"
+        return f"Clone failed: {msg}"
+    except FileNotFoundError:
+        pass  # git not installed — fall back to zip download
+    except subprocess.TimeoutExpired:
+        return "Clone timed out — repository may be too large."
+
+    return await asyncio.to_thread(_download_github_zip, repo_url, repo_dir)
+
+
 async def analyze_uploaded(file_data: list[tuple[str, bytes]], bug_description: str):
     tmpdir = tempfile.mkdtemp(prefix="prismmap_upload_")
     try:
@@ -143,17 +219,10 @@ async def analyze_repo(repo_url: str, bug_description: str):
                 return
             yield {"type": "log", "message": f"reading local repository..."}
         else:
-            yield {"type": "log", "message": "cloning repository..."}
-            clone_result = await asyncio.to_thread(
-                subprocess.run,
-                ["git", "clone", "--depth=1", repo_url, repo_dir],
-                capture_output=True,
-                text=True,
-                timeout=120,
-            )
-            if clone_result.returncode != 0:
-                msg = clone_result.stderr.strip().splitlines()[-1] if clone_result.stderr.strip() else "unknown error"
-                yield {"type": "error", "message": f"Clone failed: {msg}"}
+            yield {"type": "log", "message": "fetching repository..."}
+            err = await _fetch_repo(repo_url, repo_dir)
+            if err:
+                yield {"type": "error", "message": err}
                 return
 
         yield {"type": "log", "message": "walking file tree..."}
@@ -192,8 +261,6 @@ async def analyze_repo(repo_url: str, bug_description: str):
             "token_estimate": token_estimate,
         }
 
-    except subprocess.TimeoutExpired:
-        yield {"type": "error", "message": "Clone timed out — repository may be too large."}
     except Exception as e:
         yield {"type": "error", "message": str(e)}
     finally:
