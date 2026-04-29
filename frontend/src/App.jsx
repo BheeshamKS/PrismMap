@@ -195,6 +195,7 @@ function ScoreTable({ files }) {
 
 function PromptBlock({ prompt, tokenEstimate }) {
   const [copied, setCopied] = useState(false);
+  const [claudeOpened, setClaudeOpened] = useState(false);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(prompt).then(() => {
@@ -206,6 +207,8 @@ function PromptBlock({ prompt, tokenEstimate }) {
   const handleOpenClaude = () => {
     navigator.clipboard.writeText(prompt).then(() => {
       window.open("https://claude.ai/new", "_blank", "noopener,noreferrer");
+      setClaudeOpened(true);
+      setTimeout(() => setClaudeOpened(false), 6000);
     });
   };
 
@@ -223,7 +226,7 @@ function PromptBlock({ prompt, tokenEstimate }) {
             onClick={handleOpenClaude}
             className="font-mono text-xs border border-zinc-800 px-2.5 py-1 text-zinc-400 hover:text-white hover:border-zinc-600 transition-colors"
           >
-            Open in Claude ↗
+            {claudeOpened ? "✓ now paste with Ctrl+V" : "Open in Claude ↗"}
           </button>
           <button
             onClick={handleCopy}
