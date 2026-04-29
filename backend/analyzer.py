@@ -22,6 +22,9 @@ SKIP_DIRS = {
     ".venv", "venv", ".next", "coverage", ".pytest_cache",
     "vendor", "target", ".cache", "tmp", "temp", ".tox",
     "eggs", ".eggs", "htmlcov",
+    ".parcel-cache", ".turbo", ".nuxt", ".output", ".vercel",
+    ".netlify", ".svelte-kit", ".angular", "storybook-static",
+    ".yarn", ".pnp",
 }
 
 SKIP_EXTENSIONS = {
@@ -32,6 +35,7 @@ SKIP_EXTENSIONS = {
     ".lock", ".sum", ".bin", ".exe", ".dll", ".so", ".dylib",
     ".pyc", ".pyo", ".class", ".o", ".a",
     ".min.js", ".min.css",
+    ".mdb", ".db", ".sqlite", ".sqlite3",
 }
 
 SKIP_FILES = {

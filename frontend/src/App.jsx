@@ -8,6 +8,9 @@ const UPLOAD_SKIP_DIRS = new Set([
   ".venv", "venv", ".next", "coverage", ".pytest_cache",
   "vendor", "target", ".cache", "tmp", "temp", ".tox",
   "eggs", ".eggs", "htmlcov",
+  ".parcel-cache", ".turbo", ".nuxt", ".output", ".vercel",
+  ".netlify", ".svelte-kit", ".angular", "storybook-static",
+  ".yarn", ".pnp",
 ]);
 
 const UPLOAD_SKIP_EXTENSIONS = new Set([
@@ -17,7 +20,7 @@ const UPLOAD_SKIP_EXTENSIONS = new Set([
   ".pdf", ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z",
   ".lock", ".sum", ".bin", ".exe", ".dll", ".so", ".dylib",
   ".pyc", ".pyo", ".class", ".o", ".a",
-  ".map",
+  ".map", ".mdb", ".db", ".sqlite", ".sqlite3",
 ]);
 
 const UPLOAD_SKIP_FILES = new Set([
