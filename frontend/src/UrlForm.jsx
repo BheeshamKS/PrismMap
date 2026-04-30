@@ -11,7 +11,7 @@ export default function UrlForm({ repoUrl, setRepoUrl, pickedFiles, setPickedFil
         setRepoUrl(e.target.value);
       }}
       placeholder="https://github.com/user/repo  —  or select a local folder →"
-      className="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 text-white font-mono text-sm px-3 py-2.5 focus:outline-none focus:border-zinc-600 placeholder:text-zinc-700 transition-colors disabled:opacity-40"
+      className="flex-1 min-w-0 bg-zinc-950 border border-zinc-800 text-white font-mono text-base px-4 py-3 focus:outline-none focus:border-zinc-600 placeholder:text-zinc-700 transition-colors disabled:opacity-40"
       required={!pickedFiles}
       disabled={disabled}
       readOnly={!!pickedFiles}

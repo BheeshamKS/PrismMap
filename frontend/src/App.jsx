@@ -6,35 +6,98 @@ import LogStream from "./LogStream";
 import ResultsPanel from "./ResultsPanel";
 
 const _rawApiUrl = import.meta.env.VITE_API_URL || "http://localhost:8001";
-const API_URL = _rawApiUrl.startsWith("http") ? _rawApiUrl : `https://${_rawApiUrl}`;
+const API_URL = _rawApiUrl.startsWith("http")
+  ? _rawApiUrl
+  : `https://${_rawApiUrl}`;
 
 const UPLOAD_SKIP_DIRS = new Set([
-  "node_modules", ".git", "dist", "build", "__pycache__",
-  ".venv", "venv", ".next", "coverage", ".pytest_cache",
-  "vendor", "target", ".cache", "tmp", "temp", ".tox",
-  "eggs", ".eggs", "htmlcov",
-  ".parcel-cache", ".turbo", ".nuxt", ".output", ".vercel",
-  ".netlify", ".svelte-kit", ".angular", "storybook-static",
-  ".yarn", ".pnp",
+  "node_modules",
+  ".git",
+  "dist",
+  "build",
+  "__pycache__",
+  ".venv",
+  "venv",
+  ".next",
+  "coverage",
+  ".pytest_cache",
+  "vendor",
+  "target",
+  ".cache",
+  "tmp",
+  "temp",
+  ".tox",
+  "eggs",
+  ".eggs",
+  "htmlcov",
+  ".parcel-cache",
+  ".turbo",
+  ".nuxt",
+  ".output",
+  ".vercel",
+  ".netlify",
+  ".svelte-kit",
+  ".angular",
+  "storybook-static",
+  ".yarn",
+  ".pnp",
 ]);
 
 const UPLOAD_SKIP_EXTENSIONS = new Set([
-  ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
-  ".woff", ".woff2", ".ttf", ".eot", ".otf",
-  ".mp4", ".mp3", ".wav", ".ogg", ".webm",
-  ".pdf", ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z",
-  ".lock", ".sum", ".bin", ".exe", ".dll", ".so", ".dylib",
-  ".pyc", ".pyo", ".class", ".o", ".a",
-  ".map", ".mdb", ".db", ".sqlite", ".sqlite3",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".svg",
+  ".ico",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".eot",
+  ".otf",
+  ".mp4",
+  ".mp3",
+  ".wav",
+  ".ogg",
+  ".webm",
+  ".pdf",
+  ".zip",
+  ".tar",
+  ".gz",
+  ".bz2",
+  ".xz",
+  ".7z",
+  ".lock",
+  ".sum",
+  ".bin",
+  ".exe",
+  ".dll",
+  ".so",
+  ".dylib",
+  ".pyc",
+  ".pyo",
+  ".class",
+  ".o",
+  ".a",
+  ".map",
+  ".mdb",
+  ".db",
+  ".sqlite",
+  ".sqlite3",
 ]);
 
 const UPLOAD_SKIP_FILES = new Set([
-  "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
-  "poetry.lock", "pipfile.lock", "composer.lock",
-  "gemfile.lock", "cargo.lock",
+  "package-lock.json",
+  "yarn.lock",
+  "pnpm-lock.yaml",
+  "poetry.lock",
+  "pipfile.lock",
+  "composer.lock",
+  "gemfile.lock",
+  "cargo.lock",
 ]);
 
-const MAX_FILE_BYTES = 100 * 1024;       // 100 KB per file
+const MAX_FILE_BYTES = 100 * 1024; // 100 KB per file
 const MAX_TOTAL_BYTES = 3.5 * 1024 * 1024; // 3.5 MB total
 
 function fileExt(filename) {
@@ -50,11 +113,20 @@ function shouldUpload(file) {
   if (parts.some((seg) => UPLOAD_SKIP_DIRS.has(seg))) return false;
   if (UPLOAD_SKIP_FILES.has(filename.toLowerCase())) return false;
   if (UPLOAD_SKIP_EXTENSIONS.has(fileExt(filename))) return false;
-  if (filename.endsWith(".min.js") || filename.endsWith(".min.css")) return false;
+  if (filename.endsWith(".min.js") || filename.endsWith(".min.css"))
+    return false;
   if (file.size > MAX_FILE_BYTES) return false;
 
   return true;
 }
+
+const EXAMPLE_PROMPTS = [
+  "login button does nothing on mobile safari",
+  "uploaded images appear rotated 90° on android devices",
+  "search results flicker and reset scroll position on filter change",
+  "dark mode toggle resets to light after page refresh",
+  "api is not calling to the backend find the located",
+];
 
 export default function App() {
   const [repoUrl, setRepoUrl] = useState("");
@@ -69,7 +141,8 @@ export default function App() {
   const dirInputRef = useRef(null);
 
   useEffect(() => {
-    if (dirInputRef.current) dirInputRef.current.setAttribute("webkitdirectory", "");
+    if (dirInputRef.current)
+      dirInputRef.current.setAttribute("webkitdirectory", "");
   }, []);
 
   const handleFolderPick = (e) => {
@@ -107,14 +180,16 @@ export default function App() {
           if (totalBytes > MAX_TOTAL_BYTES) {
             setErrorMsg(
               `Upload is ${(totalBytes / 1024 / 1024).toFixed(1)} MB after filtering — exceeds the 3.5 MB server limit. ` +
-              "Use a GitHub URL instead, or select a smaller folder."
+                "Use a GitHub URL instead, or select a smaller folder.",
             );
             setStatus("error");
             return;
           }
 
           if (filesToUpload.length === 0) {
-            setErrorMsg("No uploadable source files found in the selected folder.");
+            setErrorMsg(
+              "No uploadable source files found in the selected folder.",
+            );
             setStatus("error");
             return;
           }
@@ -122,7 +197,11 @@ export default function App() {
           const formData = new FormData();
           formData.append("bug_description", bugDescription);
           for (const file of filesToUpload) {
-            formData.append("files", file, file.webkitRelativePath || file.name);
+            formData.append(
+              "files",
+              file,
+              file.webkitRelativePath || file.name,
+            );
           }
           response = await fetch(`${API_URL}/analyze-upload`, {
             method: "POST",
@@ -198,15 +277,17 @@ export default function App() {
   );
 
   const canSubmit =
-    (pickedFiles != null || repoUrl.trim()) && bugDescription.trim() && status !== "loading";
+    (pickedFiles != null || repoUrl.trim()) &&
+    bugDescription.trim() &&
+    status !== "loading";
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="max-w-2xl mx-auto px-4 py-16 space-y-8">
+      <div className="max-w-5xl mx-auto px-10 py-16 space-y-8">
         {/* Header */}
         <div className="space-y-3">
           <Logo />
-          <p className="font-mono text-sm text-zinc-600 text-center">
+          <p className="font-mono text-base text-zinc-600 text-center">
             context-aware prompt builder
           </p>
         </div>
@@ -234,15 +315,34 @@ export default function App() {
             value={bugDescription}
             onChange={(e) => setBugDescription(e.target.value)}
             placeholder="describe the bug or issue..."
-            rows={4}
-            className="w-full bg-zinc-950 border border-zinc-800 text-white font-mono text-sm px-3 py-2.5 focus:outline-none focus:border-zinc-600 placeholder:text-zinc-700 transition-colors resize-none disabled:opacity-40"
+            rows={8}
+            className="w-full bg-zinc-950 border border-zinc-800 text-white font-mono text-base px-4 py-3 focus:outline-none focus:border-zinc-600 placeholder:text-zinc-700 transition-colors resize-none disabled:opacity-40"
             required
             disabled={status === "loading"}
           />
+          {status === "idle" && (
+            <div className="space-y-1.5">
+              <p className="font-mono text-sm text-zinc-700">
+                try an example →
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {EXAMPLE_PROMPTS.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => setBugDescription(prompt)}
+                    className="font-mono text-sm border border-zinc-800 px-3 py-1.5 text-zinc-500 hover:text-white hover:border-zinc-600 transition-colors"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <button
             type="submit"
             disabled={!canSubmit}
-            className="w-full bg-white text-black font-mono text-sm py-2.5 font-medium hover:bg-zinc-100 active:bg-zinc-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            className="w-full bg-white text-black font-mono text-base py-3 font-medium hover:bg-zinc-100 active:bg-zinc-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
           >
             {status === "loading" ? "analyzing..." : "Analyze →"}
           </button>
@@ -272,9 +372,7 @@ export default function App() {
         )}
 
         {/* Results */}
-        {status === "done" && result && (
-          <ResultsPanel result={result} />
-        )}
+        {status === "done" && result && <ResultsPanel result={result} />}
       </div>
     </div>
   );

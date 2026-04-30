@@ -9,7 +9,7 @@ const LOGO_ROWS = [
   { prism: "█                      ", map: "             █   " },
 ];
 
-const PX = 14; // each pixel block is PX×PX — perfectly square, zero gap
+const PX = 22; // each pixel block is PX×PX — perfectly square, zero gap
 
 export default function Logo() {
   return (
