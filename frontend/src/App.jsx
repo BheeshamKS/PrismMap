@@ -288,7 +288,7 @@ export default function App() {
         <div className="space-y-3">
           <Logo />
           <p className="font-mono text-base text-zinc-600 text-center">
-            context-aware prompt builder
+            paste the right files, not all of them
           </p>
         </div>
 
