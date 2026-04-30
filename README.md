@@ -101,6 +101,14 @@ The frontend deploys to Vercel with zero config. Set `VITE_API_URL` to your back
 - API is rate-limited to 10 requests/minute per IP
 - Recency scoring requires git to be available on the backend host
 
+If you know a way to reduce or work around any of these limitations, contributions are very welcome.
+
+---
+
+## Contributing
+
+Pull requests are welcome. If you have an idea, fix, or improvement — especially around the limitations above — feel free to open an issue or submit a PR.
+
 ---
 
 ## License
