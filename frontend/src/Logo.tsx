@@ -1,6 +1,4 @@
-// Each '█' in the string maps to one square pixel block.
-// Spaces are transparent gaps of the same size — no font, no line-height.
-const LOGO_ROWS = [
+const LOGO_ROWS: { prism: string; map: string }[] = [
   { prism: "████  ██ █ ████ ███ ██ ", map: "███ ██  ████ ████" },
   { prism: "█  █ █     █    █  █  █", map: "█  █  █    █ █  █" },
   { prism: "█  █ █   █ ████ █  █  █", map: "█  █  █ ████ █  █" },
@@ -9,7 +7,7 @@ const LOGO_ROWS = [
   { prism: "█                      ", map: "             █   " },
 ];
 
-const PX = 22; // each pixel block is PX×PX — perfectly square, zero gap
+const PX = 22;
 
 export default function Logo() {
   return (

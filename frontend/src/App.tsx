@@ -4,6 +4,7 @@ import UrlForm from "./UrlForm";
 import UploadForm from "./UploadForm";
 import LogStream from "./LogStream";
 import ResultsPanel from "./ResultsPanel";
+import { AnalysisResult, SseEvent } from "./types";
 
 const _rawApiUrl = import.meta.env.VITE_API_URL || "http://localhost:8001";
 const API_URL = _rawApiUrl.startsWith("http")
@@ -97,15 +98,15 @@ const UPLOAD_SKIP_FILES = new Set([
   "cargo.lock",
 ]);
 
-const MAX_FILE_BYTES = 100 * 1024; // 100 KB per file
-const MAX_TOTAL_BYTES = 3.5 * 1024 * 1024; // 3.5 MB total
+const MAX_FILE_BYTES = 100 * 1024;
+const MAX_TOTAL_BYTES = 3.5 * 1024 * 1024;
 
-function fileExt(filename) {
+function fileExt(filename: string): string {
   const i = filename.lastIndexOf(".");
   return i === -1 ? "" : filename.slice(i).toLowerCase();
 }
 
-function shouldUpload(file) {
+function shouldUpload(file: File): boolean {
   const relPath = file.webkitRelativePath || file.name;
   const parts = relPath.split("/");
   const filename = parts[parts.length - 1];
@@ -128,24 +129,26 @@ const EXAMPLE_PROMPTS = [
   "api is not calling to the backend find the located",
 ];
 
+type Status = "idle" | "loading" | "done" | "error";
+
 export default function App() {
   const [repoUrl, setRepoUrl] = useState("");
   const [bugDescription, setBugDescription] = useState("");
-  const [status, setStatus] = useState("idle");
-  const [logs, setLogs] = useState([]);
-  const [warnings, setWarnings] = useState([]);
-  const [result, setResult] = useState(null);
+  const [status, setStatus] = useState<Status>("idle");
+  const [logs, setLogs] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [result, setResult] = useState<AnalysisResult | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const [pickedFiles, setPickedFiles] = useState(null);
+  const [pickedFiles, setPickedFiles] = useState<FileList | null>(null);
 
-  const dirInputRef = useRef(null);
+  const dirInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (dirInputRef.current)
       dirInputRef.current.setAttribute("webkitdirectory", "");
   }, []);
 
-  const handleFolderPick = (e) => {
+  const handleFolderPick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files?.length) return;
     setPickedFiles(files);
@@ -159,7 +162,7 @@ export default function App() {
   };
 
   const handleSubmit = useCallback(
-    async (e) => {
+    async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
 
       setStatus("loading");
@@ -172,7 +175,7 @@ export default function App() {
       let gotError = false;
 
       try {
-        let response;
+        let response: Response;
         if (pickedFiles) {
           const filesToUpload = Array.from(pickedFiles).filter(shouldUpload);
           const totalBytes = filesToUpload.reduce((sum, f) => sum + f.size, 0);
@@ -223,6 +226,8 @@ export default function App() {
           throw new Error(`Server error ${response.status}: ${text}`);
         }
 
+        if (!response.body) throw new Error("No response body");
+
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
@@ -243,7 +248,7 @@ export default function App() {
             if (!dataLine) continue;
 
             try {
-              const data = JSON.parse(dataLine.slice(6));
+              const data = JSON.parse(dataLine.slice(6)) as SseEvent;
 
               if (data.type === "log") {
                 setLogs((prev) => [...prev, data.message]);
@@ -269,7 +274,7 @@ export default function App() {
           setErrorMsg("Stream ended without a result — check backend logs.");
         }
       } catch (err) {
-        setErrorMsg(err.message);
+        setErrorMsg(err instanceof Error ? err.message : String(err));
         setStatus("error");
       }
     },

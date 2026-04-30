@@ -26,7 +26,7 @@ Context-aware prompt builder for Claude. Describe a bug, point it at a repo — 
 
 | Layer    | Tech                                                |
 | -------- | --------------------------------------------------- |
-| Frontend | React + Vite + Tailwind CSS v4                      |
+| Frontend | React + TypeScript + Vite + Tailwind CSS v4         |
 | Backend  | FastAPI + scikit-learn                              |
 | Hosting  | Vercel (frontend) + your backend host               |
 | Scoring  | TF-IDF via scikit-learn, import graph via AST/regex |

@@ -1,4 +1,20 @@
-export default function UploadForm({ dirInputRef, pickedFiles, onFolderPick, onClearFolder, disabled }) {
+import { RefObject } from "react";
+
+interface Props {
+  dirInputRef: RefObject<HTMLInputElement>;
+  pickedFiles: FileList | null;
+  onFolderPick: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClearFolder: () => void;
+  disabled: boolean;
+}
+
+export default function UploadForm({
+  dirInputRef,
+  pickedFiles,
+  onFolderPick,
+  onClearFolder,
+  disabled,
+}: Props) {
   return (
     <>
       <button

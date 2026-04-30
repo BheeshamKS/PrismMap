@@ -1,1 +1,29 @@
 /.claude
+
+# dependencies
+node_modules/
+
+# build output
+dist/
+build/
+
+# cache
+.cache/
+.parcel-cache/
+.turbo/
+*.tsbuildinfo
+
+# environment
+.env
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# misc
+.DS_Store

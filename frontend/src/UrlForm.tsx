@@ -1,4 +1,22 @@
-export default function UrlForm({ repoUrl, setRepoUrl, pickedFiles, setPickedFiles, dirInputRef, disabled }) {
+import { RefObject } from "react";
+
+interface Props {
+  repoUrl: string;
+  setRepoUrl: (v: string) => void;
+  pickedFiles: FileList | null;
+  setPickedFiles: (v: FileList | null) => void;
+  dirInputRef: RefObject<HTMLInputElement>;
+  disabled: boolean;
+}
+
+export default function UrlForm({
+  repoUrl,
+  setRepoUrl,
+  pickedFiles,
+  setPickedFiles,
+  dirInputRef,
+  disabled,
+}: Props) {
   return (
     <input
       type="text"

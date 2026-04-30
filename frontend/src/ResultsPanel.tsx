@@ -1,12 +1,12 @@
 import { useState } from "react";
+import { AnalysisResult, SelectedFile } from "./types";
 
-function ScoreTable({ files }) {
+function ScoreTable({ files }: { files: SelectedFile[] }) {
   const [threshold, setThreshold] = useState(0);
   const visible = files.filter((f) => f.score >= threshold);
 
   return (
     <div className="border border-zinc-800">
-      {/* Threshold slider */}
       <div className="flex items-center gap-3 px-3 py-2 border-b border-zinc-800">
         <span className="font-mono text-xs text-zinc-600 shrink-0">
           min score
@@ -62,7 +62,7 @@ function ScoreTable({ files }) {
   );
 }
 
-function PromptBlock({ prompt, tokenEstimate }) {
+function PromptBlock({ prompt, tokenEstimate }: { prompt: string; tokenEstimate: number }) {
   const [copied, setCopied] = useState(false);
   const [claudeOpened, setClaudeOpened] = useState(false);
 
@@ -116,7 +116,7 @@ function PromptBlock({ prompt, tokenEstimate }) {
   );
 }
 
-export default function ResultsPanel({ result }) {
+export default function ResultsPanel({ result }: { result: AnalysisResult }) {
   return (
     <div className="space-y-3 animate-fade-in">
       <ScoreTable files={result.selected_files} />

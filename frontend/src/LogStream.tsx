@@ -1,4 +1,9 @@
-export default function LogStream({ logs, loading }) {
+interface Props {
+  logs: string[];
+  loading: boolean;
+}
+
+export default function LogStream({ logs, loading }: Props) {
   if (!loading && logs.length === 0) return null;
 
   return (
