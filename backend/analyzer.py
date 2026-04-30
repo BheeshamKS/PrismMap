@@ -79,8 +79,8 @@ SKIP_NAMES = {
     "cargo.toml",
 }
 
-MAX_FILE_LINES = 500
-MAX_TOTAL_CHARS = 40_000
+MAX_FILE_LINES = int(os.getenv("MAX_FILE_LINES", "500"))
+MAX_TOTAL_CHARS = int(os.getenv("MAX_TOTAL_CHARS", "40000"))
 
 
 def _is_local_path(url: str) -> bool:
@@ -323,13 +323,13 @@ def score_files(files: list[dict], bug_description: str, repo_root: str) -> list
         path_tokens = _tokenize(f["path"])
         filename_scores.append(1.0 if bug_tokens & path_tokens else 0.0)
 
-    # Signal 4: recency bonus (+0.10)
+    # Signal 4: recency bonus (+0.10, added to base score before type_mul)
     recent_files = _get_recent_files(repo_root)
 
-    # Combine base scores
+    # Combine base scores; weights are pre-multiplier so final scores can vary
     for i, f in enumerate(files):
         recency = 0.10 if f["path"] in recent_files else 0.0
-        type_mul = 0.3 if Path(f["path"]).suffix.lower() in LOW_VALUE_EXTENSIONS else 1.0
+        type_mul = 0.3 if Path(f["path"]).suffix.lower() in LOW_VALUE_EXTENSIONS else 1.0  # style file penalty
         f["score"] = ((tfidf_scores[i] * 0.40) + (filename_scores[i] * 0.25) + recency) * type_mul
 
         reasons = []
@@ -343,7 +343,7 @@ def score_files(files: list[dict], bug_description: str, repo_root: str) -> list
             reasons.append("style file penalty")
         f["reason"] = " + ".join(reasons) if reasons else "low relevance"
 
-    # Signal 3: import graph bonus (+0.15) — applied to files imported by top scorers
+    # Signal 3: import graph bonus (+0.15, applied after base score) — files imported by top scorers
     sorted_by_score = sorted(files, key=lambda x: x["score"], reverse=True)
     top_count = max(1, len(sorted_by_score) // 5)
     top_scorers = sorted_by_score[:top_count]

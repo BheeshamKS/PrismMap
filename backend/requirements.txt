@@ -1,5 +1,6 @@
 fastapi
 uvicorn[standard]
+slowapi
 scikit-learn
 numpy
 python-multipart

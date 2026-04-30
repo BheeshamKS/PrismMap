@@ -1,17 +1,38 @@
 import json
+import os
 
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 from pydantic import BaseModel
 
 from analyzer import analyze_repo, analyze_uploaded
 
+_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+allowed_origins = (
+    [o.strip() for o in _origins_env.split(",") if o.strip()]
+    if _origins_env
+    else ["http://localhost:5173"]
+)
+
+limiter = Limiter(key_func=get_remote_address)
+
 app = FastAPI()
+app.state.limiter = limiter
+
+
+async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(status_code=429, content={"detail": "Too many requests, slow down."})
+
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -23,9 +44,10 @@ class AnalyzeRequest(BaseModel):
 
 
 @app.post("/analyze")
-async def analyze(request: AnalyzeRequest):
+@limiter.limit("10/minute")
+async def analyze(request: Request, body: AnalyzeRequest):
     async def generate():
-        async for event in analyze_repo(request.repo_url, request.bug_description):
+        async for event in analyze_repo(body.repo_url, body.bug_description):
             yield f"data: {json.dumps(event)}\n\n"
 
     return StreamingResponse(
@@ -36,7 +58,9 @@ async def analyze(request: AnalyzeRequest):
 
 
 @app.post("/analyze-upload")
+@limiter.limit("10/minute")
 async def analyze_upload(
+    request: Request,
     bug_description: str = Form(...),
     files: list[UploadFile] = File(...),
 ):
