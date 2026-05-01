@@ -2,7 +2,7 @@
 
 > paste the right files, not all of them
 
-Context-aware prompt builder for Claude. Describe a bug, point it at a repo — PrismMap ranks every file by relevance and assembles a ready-to-paste prompt with only the code that matters.
+Context-aware prompt builder for Claude. Describe a bug, point it at a repo — prism map ranks every file by relevance and assembles a ready-to-paste prompt with only the code that matters.
 
 **Live demo:** https://prism-map.vercel.app
 
